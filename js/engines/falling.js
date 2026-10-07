@@ -12,6 +12,7 @@
       this.rate = 0.35;          // 出現率 0..1
       this.motion = 'straight';  // straight / diagonal / mix
       this.hits = 0;
+      this.crossings = [];
     }
 
     setGrid(grid) {
@@ -48,7 +49,9 @@
       const g = this.grid;
       this.notes = this.notes.filter((n) => !n.done);
       const hits = [];
+      this.crossings = []; // このステップで Launchpad の境界を越えたノートの行き先セル
       for (const n of this.notes) {
+        const before = g.get(n.x, n.y);
         n.y += 1;
         if (n.dx) {
           let nx = n.x + n.dx;
@@ -57,6 +60,8 @@
         }
         const bottom = g.colBottom[n.x];
         if (bottom < 0) { n.done = true; continue; }
+        const after = g.get(n.x, Math.min(n.y, bottom));
+        if (before && after && !before.void && !after.void && before.device !== after.device) this.crossings.push(after);
         if (n.y >= bottom) {
           n.y = bottom;
           n.done = true;

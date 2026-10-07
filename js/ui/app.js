@@ -25,11 +25,6 @@
       this.scheme = Object.assign({}, DEFAULT_SCHEME, saved.scheme);
       this.density = saved.density ?? 0.28;
       this.noteOutPort = '';
-      // 生成モードの発音数の上限(トークンバケット)。音が詰まりすぎないように。
-      this.budget = {
-        life: { rate: 5, max: 3, tokens: 3, t: 0 },
-        fall: { rate: 10, max: 4, tokens: 4, t: 0 },
-      };
       this.activity = 0;
       this.strokes = new Map();
       this.snapshot = null;
@@ -57,10 +52,13 @@
       this.synth.enabled = audio.on ?? true;
       this.synth.volume = audio.volume ?? 0.7;
       this.synth.reverb = audio.reverb ?? 0.35;
-      this.synth.padOn = audio.pad ?? true;
+      if (audio.padType && LP.PAD_TYPES.some((p) => p.id === audio.padType)) this.synth.padType = audio.padType;
       this.synth.bpm = this.clock.bpm;
       this.harmony = new LP.Harmony();
       this.harmony.setModeFromScale(this.mapper.scale);
+      this.sonifier = new LP.Sonifier(this);
+      if (audio.voices) Object.assign(this.sonifier.voices, audio.voices);
+      if (audio.rules) Object.assign(this.sonifier.rules, audio.rules);
       this.midi = new LP.WebMidiAdapter();
 
       this.stageView = new LP.StageView($('#stageWrap'), $('#stage'), this.rig);
@@ -141,10 +139,19 @@
       document.querySelectorAll('.opts').forEach((s) => { s.hidden = s.dataset.for !== mode; });
       document.body.dataset.mode = mode;
       $('#hint').textContent = HINTS[mode];
+      const rule = $('#soundRule');
+      rule.innerHTML = LP.SOUND_RULES[mode].map((r) => `<option value="${r.id}">${r.name}</option>`).join('');
+      rule.value = this.sonifier.rule(mode);
+      this.updateRuleDesc();
       this.updatePad();
       this.repaint();
       this.updateStats();
       this.persist();
+    }
+
+    updateRuleDesc() {
+      const r = LP.SOUND_RULES[this.mode].find((x) => x.id === this.sonifier.rule(this.mode));
+      $('#ruleDesc').textContent = r ? r.desc : '';
     }
 
     repaint() {
@@ -208,54 +215,12 @@
       if (e.end) this.strokes.delete(e.pointerId);
     }
 
-    // 手で押したパッドの音: パッドごとに音程が決まった楽器として鳴らす
-    sound(cell, velocity = 100) {
-      this.voice(cell, this.mapper.noteFor(cell.device, cell.localX, cell.localY), velocity);
-    }
+    // 手で押したパッドの音(鳴り方は Sonifier のルールで決まる)
+    sound(cell, velocity = 100) { this.sonifier.onPress(cell, velocity); }
 
-    // 発音の共通口: 内蔵シンセ + (設定されていれば)MIDIノート出力
-    // 左手の台はマリンバ系、右手の台はベル系。定位は巨大グリッド上の横位置で決める。
-    voice(cell, note, velocity, when = 0) {
-      const d = cell.device;
-      const pan = ((cell.globalX + 0.5) / this.grid.width * 2 - 1) * 0.75;
-      this.synth.play(note, velocity, { pan, voice: d.handSide === 'left' ? 'mallet' : 'bell', when });
-      if (this.noteOutPort) {
-        const ch = this.mapper.channelFor(d);
-        setTimeout(() => this.midi.pulseNote(this.noteOutPort, ch, note, Math.round(velocity), 180), when * 1000);
-      }
-      LP.bus.emit('note', { cell, device: d, note, velocity });
-    }
-
-    _take(kind) {
-      const b = this.budget[kind];
-      const now = performance.now();
-      b.tokens = Math.min(b.max, b.tokens + ((now - b.t) / 1000) * b.rate);
-      b.t = now;
-      if (b.tokens < 1) return false;
-      b.tokens--;
-      return true;
-    }
-
-    // 生成モード用: 巨大グリッド上の高さ(上=高音)を、今のコードのコードトーンに割り当てる
-    chordNote(cell) {
-      const tones = this.harmony.tones(43, 93);
-      const H = this.grid.height;
-      const top = Math.min(tones.length - 1, 15);
-      const idx = Math.round(((H - 1 - cell.globalY) / Math.max(1, H - 1)) * (top - 3)) + (cell.globalX >= this.grid.width / 2 ? 3 : 0);
-      return tones[Math.max(0, Math.min(tones.length - 1, idx))];
-    }
-
-    // Falling Notes 用: 列ごとにコードトーンを割り当てる(左手の列は低め、右手の列は高め)
-    columnNote(cell) {
-      const tones = this.harmony.tones(43, 93);
-      const x = cell.globalX, half = this.grid.width / 2;
-      const idx = x < half ? x : x - 3;
-      return tones[Math.min(tones.length - 1, idx)];
-    }
-
-    // 和音パッドは生成モードで再生中だけ鳴らす
+    // 和音パッドは再生中、ルールが和音を使う時だけ鳴らす
     updatePad() {
-      const want = this.synth.enabled && this.synth.padOn && this.synth.ctx &&this.clock.running && this.mode !== 'manual';
+      const want = this.synth.enabled && this.synth.padOn && this.synth.ctx && this.clock.running && this.sonifier.usesPad(this.mode);
       if (want && !this.synth.pad) this.synth.setPadChord(this.harmony.padNotes());
       else if (!want && this.synth.pad) this.synth.stopPad();
       this.synth.setActivity(this.activity);
@@ -268,6 +233,8 @@
         a = Math.min(1, (this.grid.population() / Math.max(1, live)) * 4);
       } else if (this.mode === 'falling') {
         a = Math.min(1, this.falling.notes.length / 24);
+      } else {
+        a = Math.min(1, this.manual.held.size / 6);
       }
       this.activity += (a - this.activity) * 0.2;
       this.synth.setActivity(this.activity);
@@ -278,38 +245,25 @@
     onTick() {
       if (this.mode === 'life') this.lifeStep();
       else if (this.mode === 'falling') this.fallStep();
+      else this.updateActivity();
     }
 
     lifeStep() {
       if (this.life.generation === 0) this.snapshot = this.grid.capture();
       const res = this.life.step();
       for (const c of res.born) this.anim.flash(c, 0.45);
-      // 生まれたセルから音程の重ならない数個を選び、低い順に軽くストラムする。鳴ったセルは強く光る。
-      if (this.synth.enabled && res.born.length) {
-        const byNote = new Map();
-        for (const c of res.born.slice().sort(() => Math.random() - 0.5)) {
-          const n = this.chordNote(c);
-          if (!byNote.has(n)) byNote.set(n, c);
-        }
-        const picks = [...byNote.entries()].slice(0, 3).sort((a, b) => a[0] - b[0]);
-        let k = 0;
-        for (const [note, c] of picks) {
-          if (!this._take('life')) break;
-          this.voice(c, note, 55 + Math.random() * 30, k++ * 0.045);
-          this.anim.flash(c, 1);
-        }
-      }
+      this.sonifier.onLifeStep(res);
       this.updateActivity();
       this.repaint();
     }
 
     fallStep() {
       const hits = this.falling.step();
-      hits.forEach((h, i) => {
+      for (const h of hits) {
         this.anim.flash(h.cell, 1);
-        if (this.synth.enabled && this._take('fall')) this.voice(h.cell, this.columnNote(h.cell), 85 + Math.random() * 30, i * 0.02);
         LP.bus.emit('noteHit', { cell: h.cell, device: h.cell.device, x: h.cell.globalX });
-      });
+      }
+      this.sonifier.onFallStep(hits, this.falling.crossings);
       this.updateActivity();
       this.repaint();
     }
@@ -365,11 +319,13 @@
     updateStats() {
       $('#stGen').textContent = this.life.generation;
       $('#stGrid').textContent = `${this.grid.width} × ${this.grid.height}`;
-      $('#stDevices').textContent = `${this.rig.count}  (${this.rig.devices.map((d) => d.model).join('·')})`;
+      $('#stDevices').textContent = `${this.rig.count}  ${this.rig.devices.map((d) => d.model).join('')}`;
       $('#stPop').textContent = this.grid.population();
       $('#stHits').textContent = this.falling.hits;
       $('#rateVal').textContent = `${this.clock.stepsPerSecond.toFixed(1)} step/s`;
-      $('#stChord').textContent = this.mode === 'manual' ? this.mapper.steps.length + '音階' : this.harmony.chordName();
+      $('#stChord').textContent = this.mode === 'manual' && this.sonifier.rule('manual') !== 'chord'
+        ? LP.SCALES[this.mapper.scale].name
+        : this.harmony.chordName();
     }
 
     // ---------- 保存 ----------
@@ -394,7 +350,14 @@
           brightness: this.anim.brightness,
           scale: this.mapper.scale,
           channels: this.mapper.channels,
-          audio: { on: this.synth.enabled, volume: this.synth.volume, reverb: this.synth.reverb, pad: this.synth.padOn },
+          audio: {
+            on: this.synth.enabled,
+            volume: this.synth.volume,
+            reverb: this.synth.reverb,
+            padType: this.synth.padType,
+            voices: this.sonifier.voices,
+            rules: this.sonifier.rules,
+          },
           density: this.density,
         });
       }, 300);
@@ -431,9 +394,29 @@
       const rev = $('#reverb');
       rev.value = this.synth.reverb;
       rev.addEventListener('input', () => { this.synth.setReverb(+rev.value); this.persist(); });
-      const pad = $('#padToggle');
-      pad.checked = this.synth.padOn;
-      pad.addEventListener('change', () => { this.synth.padOn = pad.checked; this.updatePad(); this.persist(); });
+      const opts = (list) => list.map((o) => `<option value="${o.id}">${o.name}</option>`).join('');
+      const pad = $('#padType');
+      pad.innerHTML = opts(LP.PAD_TYPES);
+      pad.value = this.synth.padType;
+      pad.addEventListener('change', () => {
+        this.synth.padType = pad.value;
+        if (this.synth.pad) this.synth.stopPad(); // 音色を変えたら鳴らし直す
+        setTimeout(() => this.updatePad(), 50);
+        this.persist();
+      });
+      for (const [sel, hand] of [['#voiceL', 'left'], ['#voiceR', 'right']]) {
+        const el = $(sel);
+        el.innerHTML = opts(LP.INSTRUMENTS);
+        el.value = this.sonifier.voices[hand];
+        el.addEventListener('change', () => { this.sonifier.voices[hand] = el.value; this.persist(); });
+      }
+      const soundRule = $('#soundRule');
+      soundRule.addEventListener('change', () => {
+        this.sonifier.setRule(this.mode, soundRule.value);
+        this.updateRuleDesc();
+        this.updatePad();
+        this.persist();
+      });
 
       on('#btnStart', 'click', () => this.start());
       on('#btnStop', 'click', () => this.stop());

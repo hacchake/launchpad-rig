@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Launchpad Rig 説明書</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --paper: #ffffff;
+    --text: #23262b;
+    --muted: #6a717a;
+    --line: #e2e0da;
+    --accent: #c9781c;
+    --left: #2f7fd0;
+    --right: #d36d16;
+    --code: #f0eee8;
+    --font: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0f11;
+      --paper: #16181b;
+      --text: #dcdfe3;
+      --muted: #8a919a;
+      --line: #2a2e34;
+      --accent: #f2a33a;
+      --left: #6bb6ff;
+      --right: #ffa452;
+      --code: #1f2226;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.8 var(--font); }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 80px; }
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 24px; }
+  .eyebrow { font: 600 12px var(--mono); letter-spacing: .16em; color: var(--accent); }
+  h1 { font-size: 28px; line-height: 1.3; margin: 6px 0 8px; }
+  .lead { color: var(--muted); margin: 0; }
+  .open { display: inline-block; margin-top: 14px; padding: 8px 16px; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  nav.toc { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 20px; margin: 24px 0 8px; }
+  nav.toc ol { margin: 0; padding-left: 1.4em; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+  section { margin-top: 44px; }
+  h2 { font-size: 20px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  h3 { font-size: 16px; margin: 22px 0 6px; }
+  p { margin: 8px 0; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 10px; }
+  .steps li { counter-increment: s; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px 12px 56px; position: relative; }
+  .steps li::before { content: counter(s); position: absolute; left: 16px; top: 12px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font: 700 14px/26px var(--mono); text-align: center; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--code); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  kbd, code { font: 13px var(--mono); background: var(--code); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .note { color: var(--muted); font-size: 13px; }
+  .left { color: var(--left); font-weight: 600; }
+  .right { color: var(--right); font-weight: 600; }
+  /* 配置図 */
+  .rig { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px 14px; max-width: 420px; margin: 14px auto; align-items: center; }
+  .rig .hd { text-align: center; font: 600 13px var(--mono); }
+  .rig .lyr { font: 600 12px var(--mono); color: var(--muted); text-align: right; }
+  .rig .lp { aspect-ratio: 1; border-radius: 8px; background: #1b1c20; display: grid; place-items: center; color: #fff; font: 600 13px var(--mono); position: relative; box-shadow: inset 0 0 0 2px #2c2f35; }
+  .rig .lp::after { content: ""; position: absolute; inset: 14%; border-radius: 4px; background:
+      repeating-linear-gradient(90deg, transparent 0 10%, rgba(255,255,255,.06) 10% 12.5%),
+      repeating-linear-gradient(0deg, transparent 0 10%, rgba(255,255,255,.06) 10% 12.5%); }
+  .rig .lp.l { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--left) 60%, transparent); }
+  .rig .lp.r { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--right) 60%, transparent); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+  footer { margin-top: 56px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    .two { grid-template-columns: 1fr; }
+    h1 { font-size: 23px; }
+    table { font-size: 13px; }
+    td:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">MULTI·LAUNCHPAD RIG</div>
+  <h1>説明書</h1>
+  <p class="lead">Launchpad S / Launchpad X を 2〜6 台、左手・右手 × 上中下段に並べて、両手で操作する感覚を試すためのブラウザアプリです。
+    すべての台はつながった一枚の大きな盤面として動き、Game of Life や流れるノートが台の境目を越えていきます。</p>
+  <a class="open" href="index.html">アプリを開く →</a>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#start">はじめかた</a></li>
+    <li><a href="#layout">画面と台の並び</a></li>
+    <li><a href="#modes">3つのモード</a></li>
+    <li><a href="#transport">再生ボタンとテンポ</a></li>
+    <li><a href="#sound">音の仕組み</a></li>
+    <li><a href="#rules">鳴り方のルール</a></li>
+    <li><a href="#voices">音色</a></li>
+    <li><a href="#led">LEDの光り方と機種の違い</a></li>
+    <li><a href="#config">LP Configuration</a></li>
+    <li><a href="#keys">操作一覧</a></li>
+    <li><a href="#midi">実機・MIDI</a></li>
+    <li><a href="#faq">困ったとき</a></li>
+  </ol>
+</nav>
+
+<section id="start">
+  <h2>はじめかた</h2>
+  <ol class="steps">
+    <li><b>開く</b> — <code>index.html</code> をブラウザで開きます(Chrome / Edge 推奨)。最初は 6 台構成の Game of Life が表示されます。</li>
+    <li><b>START を押す</b> — セルが世代交代を始め、和音に乗った音が鳴り出します。ブラウザの決まりで、最初にどこかをクリックするまで音は出ません。</li>
+    <li><b>いじる</b> — パッドをクリックやドラッグして生きたセルを描き足したり、下の SOUND 欄で「鳴り方」や「音色」を変えたりしてみてください。</li>
+  </ol>
+  <p class="note">設定(台数・機種・配置・音色など)はブラウザに自動で保存され、次に開いた時も引き継がれます。</p>
+</section>
+
+<section id="layout">
+  <h2>画面と台の並び</h2>
+  <p>台は演奏者から見て <span class="left">左手</span> と <span class="right">右手</span> の 2 列、上段・中段・下段の 3 段に並びます。</p>
+  <div class="rig">
+    <div></div><div class="hd left">左手</div><div class="hd right">右手</div>
+    <div class="lyr">上段<br>高音</div><div class="lp l">LP1</div><div class="lp r">LP2</div>
+    <div class="lyr">中段</div><div class="lp l">LP3</div><div class="lp r">LP4</div>
+    <div class="lyr">下段<br>低音</div><div class="lp l">LP5</div><div class="lp r">LP6</div>
+  </div>
+  <p>上部の <b>Devices</b> で 2〜6 台を選べます。3 台・5 台の時は右下が「空き」になり、点線の枠で示されます。</p>
+  <div class="card">
+    <b>ひとつながりの盤面</b><br>
+    各台は 8×8 パッドですが、内部では全台をつないだ一枚の盤面(6 台なら横 16 × 縦 24)として扱います。
+    LP1 の右端の隣は LP2 の左端、LP1 の下端の隣は LP3 の上端です。台の境目は機材の境目であって、盤面の境目ではありません。
+    画面右下の小さな図(論理グリッド)で、盤面全体の様子を確認できます。
+  </div>
+  <table>
+    <tr><th>画面の場所</th><th>内容</th></tr>
+    <tr><td>上部バー</td><td>台数、LP Configuration、モード切替、Sound の ON/OFF、音階、MIDI の状態</td></tr>
+    <tr><td>中央</td><td>Launchpad 群。台の上の名札に番号・機種・手・段を表示</td></tr>
+    <tr><td>下部</td><td>再生ボタンとテンポ、モードごとの設定、SOUND、LED、情報(世代数・盤面サイズ・台数・セル数・到達数)</td></tr>
+  </table>
+</section>
+
+<section id="modes">
+  <h2>3つのモード</h2>
+  <h3>Manual</h3>
+  <p>パッドを自由に光らせて鳴らすモードです。ドラッグすると台をまたいで描けます。</p>
+  <ul>
+    <li><b>トグル</b> — クリックで点灯、もう一度クリックか右クリックで消灯。大きな絵を描くのに向いています。</li>
+    <li><b>押している間だけ</b> — 押している間だけ光って鳴ります。楽器として弾く時に。</li>
+    <li>パレットで色、スライダーで明るさを選べます(Launchpad S では赤/緑の範囲に丸められます)。</li>
+  </ul>
+  <h3>Game of Life</h3>
+  <p>ライフゲーム(セル・オートマトン)を盤面全体で動かします。周りの生きたセルの数で、次の世代に生まれるか・生き残るかが決まります。</p>
+  <ul>
+    <li><b>ルール</b> — 標準の Conway のほか HighLife、Day &amp; Night、Seeds などに切り替えられます。</li>
+    <li><b>端をつなぐ</b> — ON にすると盤面の右端と左端、上端と下端がつながります。</li>
+    <li><b>色</b> — 生まれたセル(白)、生存中(緑)、死んだ瞬間(赤)、最近死んだ(暗い赤の残光)を、それぞれ好きな色に変えられます。</li>
+    <li>Manual で描いた絵をそのまま Life で動かせます(パターンは共通です)。</li>
+  </ul>
+  <h3>Falling Notes</h3>
+  <p>音楽ゲームのように、ノートが上から下へ流れ、台の境目を越えて落ちていきます。下端に着くと音が鳴ります。</p>
+  <ul>
+    <li><b>動き</b> — まっすぐ / 斜め(左右の端で反射)/ ミックス。</li>
+    <li><b>出現率</b> — ノートが降ってくる量。パッドをクリックすると、そこからノートを落とせます。右クリックでその列のノートを消します。</li>
+  </ul>
+</section>
+
+<section id="transport">
+  <h2>再生ボタンとテンポ</h2>
+  <table>
+    <tr><th>ボタン</th><th>はたらき</th></tr>
+    <tr><td>START / STOP</td><td>自動で進める / 止める</td></tr>
+    <tr><td>STEP</td><td>1 ステップだけ進める</td></tr>
+    <tr><td>RESET</td><td>START する直前(または RANDOM した直後)の状態に戻す。Falling ではノートと到達数を消す</td></tr>
+    <tr><td>RANDOM</td><td>ランダムな配置を作る(密度は Life の「RANDOM密度」)。Falling ではノートをまとめて降らせる</td></tr>
+    <tr><td>CLEAR</td><td>全部消す</td></tr>
+  </table>
+  <p><b>BPM</b> と分割(1/4〜1/32)で速さを決めます。例えば BPM 120・1/16 なら 1 秒に 8 ステップ進みます。
+    コード進行、LED の脈動(pulse)、エコーの間隔もこのテンポに合わせて動きます。</p>
+</section>
+
+<section id="sound">
+  <h2>音の仕組み</h2>
+  <div class="card">
+    <b>どこが鳴っても気持ちよく聞こえるように</b><br>
+    Game of Life や Falling Notes では、どのセルが鳴るかは予測できません。そこで、START 中は拍に合わせて <b>2 小節ごとにコードが進み</b>、
+    生まれる音はすべてその時のコードの構成音に合わせています。今のコード名は SOUND 欄の右上に表示されます。
+  </div>
+  <table>
+    <tr><th>音階(上部バー)</th><th>コード進行</th></tr>
+    <tr><td>メジャー系(メジャーペンタ・メジャー・クロマチック)</td><td>Cmaj9 → Am9 → Fmaj9 → G9sus4</td></tr>
+    <tr><td>マイナー系(マイナーペンタ・ナチュラルマイナー)</td><td>Cm9 → A♭maj7 → Fm9 → B♭6</td></tr>
+  </table>
+  <ul>
+    <li><b>左右</b> — <span class="left">左手</span>の台と<span class="right">右手</span>の台で別々の音色を選べます。音の左右の位置(定位)は盤面上の横位置に合わせています。</li>
+    <li><b>高さ</b> — 上の段ほど高い音、下の段ほど低い音になります。右手側は左手側より高めです。</li>
+    <li><b>和音パッド</b> — 再生中、今のコードを柔らかく鳴らし続けます。盤面が賑やかなほど音量が上がり、音色も明るくなります。</li>
+    <li><b>響き</b> — 全体にリバーブ(残響)と、テンポに合わせて左右に跳ね返るエコーがかかります。「響き」スライダーで残響の量を変えられます。</li>
+    <li><b>光と音の連動</b> — 実際に音が鳴ったセルは強く白くフラッシュします。</li>
+    <li>音が詰まりすぎないよう、一度に鳴る数には上限があります。</li>
+  </ul>
+</section>
+
+<section id="rules">
+  <h2>鳴り方のルール</h2>
+  <p>SOUND 欄の「鳴り方」で、盤面の出来事をどう音にするかを選びます。選べるルールはモードごとに違います。</p>
+  <div id="ruleTables"><p class="note">(表を読み込み中…)</p></div>
+  <p class="note">おすすめの組み合わせ: Life「スキャン」+ 左手カリンバ・右手オルゴール / Falling「左手ドラム+右手メロディ」+ 右手スチールパン / Manual「コードに合わせる」で START し、和音パッドの上で即興。</p>
+</section>
+
+<section id="voices">
+  <h2>音色</h2>
+  <p>左手・右手それぞれに選べます。</p>
+  <table>
+    <tr><th>音色</th><th>特徴</th></tr>
+    <tr><td>マリンバ</td><td>木を叩いたような丸い音。低い音ほど長く響く。左手の初期設定</td></tr>
+    <tr><td>ガラスベル</td><td>澄んだガラスのような音で、余韻が長い。右手の初期設定</td></tr>
+    <tr><td>エレピ</td><td>エレクトリックピアノ風。やわらかい胴鳴りに金属的なアタック</td></tr>
+    <tr><td>カリンバ</td><td>親指ピアノ。短いはじく音</td></tr>
+    <tr><td>オルゴール</td><td>1 オクターブ上で鳴る、きらきらした音</td></tr>
+    <tr><td>シンセ・プラック</td><td>はじいた瞬間だけ明るいシンセの音</td></tr>
+    <tr><td>スチールパン</td><td>南国風の金属打楽器</td></tr>
+    <tr><td>やわらかリード</td><td>2 つの波を少しずらして重ねた、伸びのあるシンセ</td></tr>
+    <tr><td>チップチューン</td><td>昔のゲーム機のような矩形波</td></tr>
+    <tr><td>ベース</td><td>1 オクターブ下で鳴る太い低音。左手向き</td></tr>
+  </table>
+  <h3>和音パッドの音色</h3>
+  <table>
+    <tr><th>種類</th><th>特徴</th></tr>
+    <tr><td>ウォーム</td><td>のこぎり波を重ねた暖かい音</td></tr>
+    <tr><td>エアリー</td><td>三角波の柔らかい音に、1 オクターブ上を薄く重ねる</td></tr>
+    <tr><td>グラス</td><td>正弦波の透明な音に、高い倍音を少し</td></tr>
+    <tr><td>なし</td><td>和音パッドを鳴らさない</td></tr>
+  </table>
+  <p class="note">ドラム(キック・スネア・ハット・クラップ)は Falling Notes の「左手ドラム+右手メロディ」で使われます。</p>
+</section>
+
+<section id="led">
+  <h2>LEDの光り方と機種の違い</h2>
+  <div class="two">
+    <div class="card">
+      <b>Launchpad S</b><br>
+      赤 LED と緑 LED の 2 色 × 各 4 段階(16 色)だけで光ります。青はありません。
+      指定した色は、赤・緑・アンバー(黄)の範囲に丸められ、残光も段階的に消えていきます。実機の見え方の目安になります。
+    </div>
+    <div class="card">
+      <b>Launchpad X</b><br>
+      RGB フルカラーの LED です(各色 127 段階)。指定した色がそのまま出ます。
+    </div>
+  </div>
+  <table>
+    <tr><th>効果(LED 欄)</th><th>内容</th></tr>
+    <tr><td>glow</td><td>光ったパッドの周りに光がにじむ</td></tr>
+    <tr><td>fade</td><td>点く時にすっと明るくなる</td></tr>
+    <tr><td>pulse</td><td>拍に合わせてゆっくり脈打つ</td></tr>
+    <tr><td>flash</td><td>生まれた瞬間・押した瞬間にパッと白く光る</td></tr>
+    <tr><td>afterglow</td><td>消える時にゆっくり残光が残る</td></tr>
+  </table>
+  <p>「全体の明るさ」で全台の明るさをまとめて変えられます。「配色リセット」で Life / Falling の色を初期値に戻します。</p>
+</section>
+
+<section id="config">
+  <h2>LP Configuration</h2>
+  <p>上部の <b>LP Configuration</b> で台ごとの設定をします。</p>
+  <table>
+    <tr><th>項目</th><th>内容</th></tr>
+    <tr><td>機種</td><td>Launchpad S / X を台ごとに選ぶ。S + X + X + S のような混在も可</td></tr>
+    <tr><td>論理スロット</td><td>その台が盤面のどこを受け持つか。ほかの台と同じ場所を選ぶと入れ替わる</td></tr>
+    <tr><td>handSide / rowLayer</td><td>左手 / 右手、上段 0・中段 1・下段 2。論理スロットから決まり、音域と MIDI チャンネルに使われる</td></tr>
+    <tr><td>開始音 / ch</td><td>その台の一番左下のパッドの音と、MIDI 出力のチャンネル</td></tr>
+    <tr><td>回転(物理)</td><td>画面上の台の向き。斜めに置いた状態を試せる</td></tr>
+    <tr><td>実機 出力 / 入力</td><td>Web MIDI を有効にすると、実機の Launchpad を割り当てられる</td></tr>
+  </table>
+  <div class="card">
+    <b>物理配置と論理グリッドは別物</b><br>
+    画面上で台を動かしたり(本体の縁か名札をドラッグ)、回転させたり、「物理配置: 左右を入れ替え」をしても、盤面のつながり(論理グリッド)は変わりません。
+    盤面のつながりを変えたい時は「論理スロット」か「論理グリッド: 左右/上下を入れ替え」を使います。
+    「論理どおりに整列」で画面上の配置を標準に戻せます。
+  </div>
+  <p>「実寸比率で表示」を ON にすると、Launchpad S(約 24.5cm 角)と Launchpad X(約 18cm 角)の大きさの違いを再現します(寸法は概算です)。</p>
+</section>
+
+<section id="keys">
+  <h2>操作一覧</h2>
+  <table>
+    <tr><th>操作</th><th>はたらき</th></tr>
+    <tr><td>クリック</td><td>パッドの点灯 / 消灯(Falling ではノートを落とす)</td></tr>
+    <tr><td>右クリック</td><td>消灯(Falling ではその列のノートを消す)</td></tr>
+    <tr><td>ドラッグ</td><td>台をまたいで連続して描く</td></tr>
+    <tr><td>本体の縁・名札をドラッグ</td><td>台を動かす</td></tr>
+    <tr><td><kbd>Shift</kbd> + ホイール</td><td>台を回転</td></tr>
+    <tr><td><kbd>Space</kbd></td><td>START / STOP</td></tr>
+    <tr><td><kbd>→</kbd></td><td>STEP</td></tr>
+    <tr><td><kbd>R</kbd> / <kbd>C</kbd> / <kbd>Backspace</kbd></td><td>RANDOM / CLEAR / RESET</td></tr>
+    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Manual / Game of Life / Falling Notes</td></tr>
+  </table>
+  <p class="note">タッチ画面なら複数の指を同時に認識するので、実際に両手で叩けます。</p>
+</section>
+
+<section id="midi">
+  <h2>実機・MIDI</h2>
+  <p>実機がなくても全機能を画面だけで使えます。実機や DAW とつなぐ場合は LP Configuration の「MIDI(任意)」から。</p>
+  <ol>
+    <li>「Web MIDI を有効化」を押す(Chrome / Edge。許可を求められます)。</li>
+    <li>台ごとに「実機 出力」「実機 入力」で Launchpad を選ぶと、その台の LED が画面と同時に光り、実機のパッドが画面のパッドと同じように働きます。
+      Launchpad S は X-Y レイアウト、Launchpad X は Programmer モードで動かします。</li>
+    <li>「音源へのノート出力」に DAW や音源のポートを選ぶと、鳴った音が MIDI ノートとしても送られます(左手 ch1 / 右手 ch2 が初期値)。</li>
+  </ol>
+  <p class="note">MIDI まわりは実装済みですが、実機での動作は未確認です。</p>
+</section>
+
+<section id="faq">
+  <h2>困ったとき</h2>
+  <h3>音が出ない</h3>
+  <p>上部の <b>Sound</b> に チェックが入っているか、SOUND 欄の音量が 0 になっていないかを確認してください。ブラウザの決まりで、ページを開いてから一度どこかをクリックするまでは音が出ません。
+    「鳴り方」が「鳴らさない」になっていないかも確認してください。</p>
+  <h3>和音パッドが鳴らない</h3>
+  <p>和音パッドは START 中だけ鳴ります。Manual モードでは「コードに合わせる」を選んだ時だけ鳴ります。</p>
+  <h3>更新したはずなのに古いまま</h3>
+  <p>ブラウザに古いファイルが残っていることがあります。<kbd>Ctrl</kbd> + <kbd>F5</kbd> で読み直してください。</p>
+  <h3>配置がぐちゃぐちゃになった</h3>
+  <p>LP Configuration の「論理どおりに整列」で標準の並びに戻ります。</p>
+</section>
+
+<footer>
+  Multi-Launchpad Rig — 実機の Launchpad S / X を買う前に、複数台を両手で操作する感覚を試すためのプロトタイプ。
+  <a href="index.html">アプリを開く</a>
+</footer>
+</div>
+
+<!-- 鳴り方ルールの表はアプリ本体の定義から作る(記載と実装がずれないように) -->
+<script src="js/core/base.js"></script>
+<script src="js/audio/sonifier.js"></script>
+<script>
+  (function () {
+    const MODE_NAMES = { manual: 'Manual', life: 'Game of Life', falling: 'Falling Notes' };
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const box = document.getElementById('ruleTables');
+    if (!window.LP || !LP.SOUND_RULES) return;
+    box.innerHTML = Object.entries(LP.SOUND_RULES).map(([mode, rules]) =>
+      `<h3>${MODE_NAMES[mode]}</h3><table><tr><th>鳴り方</th><th>内容</th></tr>` +
+      rules.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.desc || '音を鳴らさない。光だけで楽しむ時に。')}</td></tr>`).join('') +
+      '</table>').join('');
+  })();
+</script>
+</body>
+</html>

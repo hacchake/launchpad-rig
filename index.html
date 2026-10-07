@@ -15,6 +15,7 @@
     </select>
   </label>
   <button id="openConfig" class="btn">LP Configuration</button>
+  <a class="btn" href="manual.html" target="_blank" rel="noopener">説明書</a>
   <nav class="seg" id="modeSeg">
     <button data-mode="manual">Manual</button>
     <button data-mode="life">Game of Life</button>
@@ -98,10 +99,18 @@
   </section>
 
   <section class="card sound">
-    <h3>Sound <span id="stChord" class="chord" title="いまのコード(生成モードの音はこのコードの構成音で鳴る)"></span></h3>
-    <label class="row">音量 <input type="range" id="volume" min="0" max="1" step="0.01"></label>
-    <label class="row">響き <input type="range" id="reverb" min="0" max="0.9" step="0.01"></label>
-    <label class="chk"><input type="checkbox" id="padToggle"> 和音パッド(Life / Falling 再生中)</label>
+    <h3>Sound <span id="stChord" class="chord" title="いまのコード(生成される音はこのコードの構成音で鳴る)"></span></h3>
+    <label class="row">鳴り方 <select id="soundRule"></select></label>
+    <p id="ruleDesc" class="desc"></p>
+    <div class="grid2">
+      <label>左手</label><select id="voiceL"></select>
+      <label>右手</label><select id="voiceR"></select>
+      <label>和音パッド</label><select id="padType"></select>
+    </div>
+    <div class="row">
+      <label class="row">音量 <input type="range" id="volume" min="0" max="1" step="0.01"></label>
+      <label class="row">響き <input type="range" id="reverb" min="0" max="0.9" step="0.01"></label>
+    </div>
   </section>
 
   <section class="card fx">
@@ -149,6 +158,7 @@
 <script src="js/midi/midi-adapter.js"></script>
 <script src="js/audio/harmony.js"></script>
 <script src="js/audio/synth.js"></script>
+<script src="js/audio/sonifier.js"></script>
 <script src="js/ui/stage.js"></script>
 <script src="js/ui/pad-input.js"></script>
 <script src="js/ui/minimap.js"></script>
