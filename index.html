@@ -70,10 +70,7 @@
   <section class="card opts" data-for="life">
     <h3>Game of Life</h3>
     <label class="row">ルール <select id="rule"></select></label>
-    <div class="row">
-      <label class="chk"><input type="checkbox" id="wrap"> 端をつなぐ</label>
-      <label class="chk"><input type="checkbox" id="birthSound"> 誕生を鳴らす</label>
-    </div>
+    <label class="chk"><input type="checkbox" id="wrap"> 端をつなぐ(トーラス)</label>
     <label class="row">RANDOM密度 <input type="range" id="density" min="0.05" max="0.7" step="0.01"></label>
     <div class="swatches">
       <label><input type="color" data-scheme="born">誕生</label>
@@ -98,6 +95,13 @@
       <label><input type="color" data-scheme="noteRight">右手</label>
       <label><input type="color" data-scheme="hit">到達</label>
     </div>
+  </section>
+
+  <section class="card sound">
+    <h3>Sound <span id="stChord" class="chord" title="いまのコード(生成モードの音はこのコードの構成音で鳴る)"></span></h3>
+    <label class="row">音量 <input type="range" id="volume" min="0" max="1" step="0.01"></label>
+    <label class="row">響き <input type="range" id="reverb" min="0" max="0.9" step="0.01"></label>
+    <label class="chk"><input type="checkbox" id="padToggle"> 和音パッド(Life / Falling 再生中)</label>
   </section>
 
   <section class="card fx">
@@ -143,6 +147,7 @@
 <script src="js/render/animation.js"></script>
 <script src="js/midi/note-mapper.js"></script>
 <script src="js/midi/midi-adapter.js"></script>
+<script src="js/audio/harmony.js"></script>
 <script src="js/audio/synth.js"></script>
 <script src="js/ui/stage.js"></script>
 <script src="js/ui/pad-input.js"></script>

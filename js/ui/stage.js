@@ -104,6 +104,10 @@
       this.scale = s;
       this.stage.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(4)})`;
       this.stage.style.setProperty('--inv', (1 / s).toFixed(4));
+      // 台が小さく表示される時は名札を短くして重なりを防ぐ
+      const minPx = Math.min(...this.rig.devices.map((d) => this.rig.sizeOf(d.model))) * MM * s;
+      this.stage.classList.toggle('compact', minPx < 250);
+      this.stage.classList.toggle('tiny', minPx < 130);
       // 初回はアニメーションさせずに即座に合わせる
       if (!this._booted) {
         this._booted = true;

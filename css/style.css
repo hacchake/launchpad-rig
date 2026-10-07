@@ -163,6 +163,9 @@ input[type="number"] { width: 52px; }
 }
 .lp-tag b { color: #fff; }
 .lp-tag .meta { font-weight: 400; color: #6f7780; margin-left: .8em; }
+#stage.compact .lp-tag .meta,
+#stage.compact .stage-label.hand small { display: none; }
+#stage.tiny .lp-tag .model { display: none; }
 .lp-tag .hand-left { color: var(--left); }
 .lp-tag .hand-right { color: var(--right); }
 
@@ -266,6 +269,7 @@ input[type="color"] {
 }
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
 .swatches label { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.chord { font: 600 12px var(--mono); letter-spacing: .02em; text-transform: none; color: var(--accent); }
 .fxs { display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: 280px; }
 
 .stats { flex-direction: row; gap: 16px; margin-left: auto; }

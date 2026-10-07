@@ -24,8 +24,13 @@
       this.mode = saved.mode || 'life';
       this.scheme = Object.assign({}, DEFAULT_SCHEME, saved.scheme);
       this.density = saved.density ?? 0.28;
-      this.birthSound = !!saved.birthSound;
       this.noteOutPort = '';
+      // 生成モードの発音数の上限(トークンバケット)。音が詰まりすぎないように。
+      this.budget = {
+        life: { rate: 5, max: 3, tokens: 3, t: 0 },
+        fall: { rate: 10, max: 4, tokens: 4, t: 0 },
+      };
+      this.activity = 0;
       this.strokes = new Map();
       this.snapshot = null;
 
@@ -47,8 +52,15 @@
       this.mapper = new LP.NoteMapper();
       if (saved.scale && LP.SCALES[saved.scale]) this.mapper.scale = saved.scale;
       if (saved.channels) Object.assign(this.mapper.channels, saved.channels);
+      const audio = saved.audio || {};
       this.synth = new LP.Synth();
-      this.synth.enabled = !!saved.sound;
+      this.synth.enabled = audio.on ?? true;
+      this.synth.volume = audio.volume ?? 0.7;
+      this.synth.reverb = audio.reverb ?? 0.35;
+      this.synth.padOn = audio.pad ?? true;
+      this.synth.bpm = this.clock.bpm;
+      this.harmony = new LP.Harmony();
+      this.harmony.setModeFromScale(this.mapper.scale);
       this.midi = new LP.WebMidiAdapter();
 
       this.stageView = new LP.StageView($('#stageWrap'), $('#stage'), this.rig);
@@ -60,8 +72,15 @@
       this.rig.bus.on('release', (e) => this.onRelease(e));
       this.rig.bus.on('physical', () => this.persist());
       this.clock.bus.on('tick', () => this.onTick());
-      this.clock.bus.on('start', () => this.updateTransport());
-      this.clock.bus.on('stop', () => this.updateTransport());
+      this.clock.bus.on('beat', (e) => this.harmony.onBeat(e.beat));
+      this.clock.bus.on('tempo', () => this.synth.setTempo(this.clock.bpm));
+      this.clock.bus.on('start', () => { this.harmony.reset(); this.updateTransport(); this.updatePad(); });
+      this.clock.bus.on('stop', () => { this.updateTransport(); this.updatePad(); });
+      this.harmony.bus.on('change', () => { if (this.synth.pad) this.synth.setPadChord(this.harmony.padNotes()); });
+      // 最初のユーザー操作で音を出せる状態にする(ブラウザの自動再生制限)
+      const unlock = () => { if (this.synth.enabled) { this.synth.ensure(); this.updatePad(); } };
+      window.addEventListener('pointerdown', unlock, true);
+      window.addEventListener('keydown', unlock, true);
 
       this.updateSchemeColors();
       this.bindUI();
@@ -122,6 +141,7 @@
       document.querySelectorAll('.opts').forEach((s) => { s.hidden = s.dataset.for !== mode; });
       document.body.dataset.mode = mode;
       $('#hint').textContent = HINTS[mode];
+      this.updatePad();
       this.repaint();
       this.updateStats();
       this.persist();
@@ -188,13 +208,69 @@
       if (e.end) this.strokes.delete(e.pointerId);
     }
 
-    // パッドの音: 内蔵シンセ + (設定されていれば)MIDIノート出力
+    // 手で押したパッドの音: パッドごとに音程が決まった楽器として鳴らす
     sound(cell, velocity = 100) {
+      this.voice(cell, this.mapper.noteFor(cell.device, cell.localX, cell.localY), velocity);
+    }
+
+    // 発音の共通口: 内蔵シンセ + (設定されていれば)MIDIノート出力
+    // 左手の台はマリンバ系、右手の台はベル系。定位は巨大グリッド上の横位置で決める。
+    voice(cell, note, velocity, when = 0) {
       const d = cell.device;
-      const note = this.mapper.noteFor(d, cell.localX, cell.localY);
-      this.synth.play(note, velocity, { pan: d.handSide === 'left' ? -0.55 : 0.55 });
-      if (this.noteOutPort) this.midi.pulseNote(this.noteOutPort, this.mapper.channelFor(d), note, velocity, 180);
+      const pan = ((cell.globalX + 0.5) / this.grid.width * 2 - 1) * 0.75;
+      this.synth.play(note, velocity, { pan, voice: d.handSide === 'left' ? 'mallet' : 'bell', when });
+      if (this.noteOutPort) {
+        const ch = this.mapper.channelFor(d);
+        setTimeout(() => this.midi.pulseNote(this.noteOutPort, ch, note, Math.round(velocity), 180), when * 1000);
+      }
       LP.bus.emit('note', { cell, device: d, note, velocity });
+    }
+
+    _take(kind) {
+      const b = this.budget[kind];
+      const now = performance.now();
+      b.tokens = Math.min(b.max, b.tokens + ((now - b.t) / 1000) * b.rate);
+      b.t = now;
+      if (b.tokens < 1) return false;
+      b.tokens--;
+      return true;
+    }
+
+    // 生成モード用: 巨大グリッド上の高さ(上=高音)を、今のコードのコードトーンに割り当てる
+    chordNote(cell) {
+      const tones = this.harmony.tones(43, 93);
+      const H = this.grid.height;
+      const top = Math.min(tones.length - 1, 15);
+      const idx = Math.round(((H - 1 - cell.globalY) / Math.max(1, H - 1)) * (top - 3)) + (cell.globalX >= this.grid.width / 2 ? 3 : 0);
+      return tones[Math.max(0, Math.min(tones.length - 1, idx))];
+    }
+
+    // Falling Notes 用: 列ごとにコードトーンを割り当てる(左手の列は低め、右手の列は高め)
+    columnNote(cell) {
+      const tones = this.harmony.tones(43, 93);
+      const x = cell.globalX, half = this.grid.width / 2;
+      const idx = x < half ? x : x - 3;
+      return tones[Math.min(tones.length - 1, idx)];
+    }
+
+    // 和音パッドは生成モードで再生中だけ鳴らす
+    updatePad() {
+      const want = this.synth.enabled && this.synth.padOn && this.synth.ctx &&this.clock.running && this.mode !== 'manual';
+      if (want && !this.synth.pad) this.synth.setPadChord(this.harmony.padNotes());
+      else if (!want && this.synth.pad) this.synth.stopPad();
+      this.synth.setActivity(this.activity);
+    }
+
+    updateActivity() {
+      let a = 0;
+      if (this.mode === 'life') {
+        const live = this.grid.cells.filter((c) => !c.void).length;
+        a = Math.min(1, (this.grid.population() / Math.max(1, live)) * 4);
+      } else if (this.mode === 'falling') {
+        a = Math.min(1, this.falling.notes.length / 24);
+      }
+      this.activity += (a - this.activity) * 0.2;
+      this.synth.setActivity(this.activity);
     }
 
     // ---------- 時間 ----------
@@ -207,21 +283,34 @@
     lifeStep() {
       if (this.life.generation === 0) this.snapshot = this.grid.capture();
       const res = this.life.step();
-      for (const c of res.born) this.anim.flash(c, 0.9);
-      if (this.birthSound && res.born.length) {
-        const picks = res.born.slice().sort(() => Math.random() - 0.5).slice(0, 3);
-        for (const c of picks) this.sound(c, 60);
+      for (const c of res.born) this.anim.flash(c, 0.45);
+      // 生まれたセルから音程の重ならない数個を選び、低い順に軽くストラムする。鳴ったセルは強く光る。
+      if (this.synth.enabled && res.born.length) {
+        const byNote = new Map();
+        for (const c of res.born.slice().sort(() => Math.random() - 0.5)) {
+          const n = this.chordNote(c);
+          if (!byNote.has(n)) byNote.set(n, c);
+        }
+        const picks = [...byNote.entries()].slice(0, 3).sort((a, b) => a[0] - b[0]);
+        let k = 0;
+        for (const [note, c] of picks) {
+          if (!this._take('life')) break;
+          this.voice(c, note, 55 + Math.random() * 30, k++ * 0.045);
+          this.anim.flash(c, 1);
+        }
       }
+      this.updateActivity();
       this.repaint();
     }
 
     fallStep() {
       const hits = this.falling.step();
-      for (const h of hits) {
+      hits.forEach((h, i) => {
         this.anim.flash(h.cell, 1);
-        this.sound(h.cell, 110);
+        if (this.synth.enabled && this._take('fall')) this.voice(h.cell, this.columnNote(h.cell), 85 + Math.random() * 30, i * 0.02);
         LP.bus.emit('noteHit', { cell: h.cell, device: h.cell.device, x: h.cell.globalX });
-      }
+      });
+      this.updateActivity();
       this.repaint();
     }
 
@@ -280,6 +369,7 @@
       $('#stPop').textContent = this.grid.population();
       $('#stHits').textContent = this.falling.hits;
       $('#rateVal').textContent = `${this.clock.stepsPerSecond.toFixed(1)} step/s`;
+      $('#stChord').textContent = this.mode === 'manual' ? this.mapper.steps.length + '音階' : this.harmony.chordName();
     }
 
     // ---------- 保存 ----------
@@ -304,9 +394,8 @@
           brightness: this.anim.brightness,
           scale: this.mapper.scale,
           channels: this.mapper.channels,
-          sound: this.synth.enabled,
+          audio: { on: this.synth.enabled, volume: this.synth.volume, reverb: this.synth.reverb, pad: this.synth.padOn },
           density: this.density,
-          birthSound: this.birthSound,
         });
       }, 300);
     }
@@ -322,11 +411,29 @@
 
       const sound = $('#soundToggle');
       sound.checked = this.synth.enabled;
-      sound.addEventListener('change', () => { this.synth.enabled = sound.checked; if (sound.checked) this.synth.ensure(); this.persist(); });
+      sound.addEventListener('change', () => {
+        this.synth.enabled = sound.checked;
+        if (sound.checked) this.synth.ensure();
+        this.updatePad();
+        this.persist();
+      });
       const scale = $('#scaleSelect');
       scale.innerHTML = Object.entries(LP.SCALES).map(([k, s]) => `<option value="${k}">${s.name}</option>`).join('');
       scale.value = this.mapper.scale;
-      scale.addEventListener('change', () => { this.mapper.scale = scale.value; this.persist(); });
+      scale.addEventListener('change', () => {
+        this.mapper.scale = scale.value;
+        this.harmony.setModeFromScale(scale.value); // マイナー系の音階ならコード進行もマイナーに
+        this.persist();
+      });
+      const vol = $('#volume');
+      vol.value = this.synth.volume;
+      vol.addEventListener('input', () => { this.synth.setVolume(+vol.value); this.persist(); });
+      const rev = $('#reverb');
+      rev.value = this.synth.reverb;
+      rev.addEventListener('input', () => { this.synth.setReverb(+rev.value); this.persist(); });
+      const pad = $('#padToggle');
+      pad.checked = this.synth.padOn;
+      pad.addEventListener('change', () => { this.synth.padOn = pad.checked; this.updatePad(); this.persist(); });
 
       on('#btnStart', 'click', () => this.start());
       on('#btnStop', 'click', () => this.stop());
@@ -377,9 +484,6 @@
       const dens = $('#density');
       dens.value = this.density;
       dens.addEventListener('input', () => { this.density = +dens.value; this.persist(); });
-      const bs = $('#birthSound');
-      bs.checked = this.birthSound;
-      bs.addEventListener('change', () => { this.birthSound = bs.checked; this.persist(); });
 
       // Falling
       const motion = $('#motion');

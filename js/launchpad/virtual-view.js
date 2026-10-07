@@ -74,7 +74,7 @@
       const d = this.device;
       const hand = d.handSide === 'left' ? 'L 左手' : 'R 右手';
       this.tag.innerHTML =
-        `<b>${d.label}</b> / ${d.profile.name}` +
+        `<b>${d.label}</b><span class="model"> / ${d.profile.name}</span>` +
         `<span class="meta hand-${d.handSide}">${hand}</span>` +
         `<span class="meta">${LAYER_NAMES[d.rowLayer] || ''}</span>`;
       if (this.logo) this.logo.style.setProperty('--logo', d.handSide === 'left' ? 'rgba(70,160,255,.55)' : 'rgba(255,150,60,.55)');
