@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Launchpad Rig</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-dot"></span>MULTI·LAUNCHPAD <small>仮想演奏リグ</small></div>
+  <label class="field">Devices
+    <select id="deviceCount">
+      <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+    </select>
+  </label>
+  <button id="openConfig" class="btn">LP Configuration</button>
+  <nav class="seg" id="modeSeg">
+    <button data-mode="manual">Manual</button>
+    <button data-mode="life">Game of Life</button>
+    <button data-mode="falling">Falling Notes</button>
+  </nav>
+  <div class="spacer"></div>
+  <label class="chk"><input type="checkbox" id="soundToggle"> Sound</label>
+  <select id="scaleSelect" title="音階"></select>
+  <span id="midiStatus" class="pill">MIDI 未使用</span>
+</header>
+
+<main id="stageWrap">
+  <div id="stage"></div>
+  <div id="hint" class="hint"></div>
+  <div class="keys">Space 再生/停止 · → STEP · R RANDOM · C CLEAR · 1/2/3 モード · 本体の縁をドラッグで移動 · Shift+ホイールで回転</div>
+</main>
+
+<footer class="dock">
+  <section class="card transport-card">
+    <div class="transport">
+      <button id="btnStart" class="tbtn">START</button>
+      <button id="btnStop" class="tbtn">STOP</button>
+      <button id="btnStep" class="tbtn">STEP</button>
+      <button id="btnReset" class="tbtn">RESET</button>
+      <button id="btnRandom" class="tbtn">RANDOM</button>
+      <button id="btnClear" class="tbtn">CLEAR</button>
+    </div>
+    <div class="tempo">
+      <label>BPM <input type="range" id="bpm" min="20" max="300" step="1"></label>
+      <output id="bpmVal" class="mono"></output>
+      <select id="division" title="1拍あたりのステップ数">
+        <option value="1">1/4</option>
+        <option value="2">1/8</option>
+        <option value="4">1/16</option>
+        <option value="8">1/32</option>
+      </select>
+      <span id="rateVal" class="muted mono"></span>
+    </div>
+  </section>
+
+  <section class="card opts" data-for="manual">
+    <h3>Manual</h3>
+    <div class="palette" id="palette"></div>
+    <label class="row">明るさ <input type="range" id="paintBright" min="0.1" max="1" step="0.05"></label>
+    <label class="row">パッド動作
+      <select id="behavior">
+        <option value="toggle">トグル(クリックでON/OFF)</option>
+        <option value="momentary">押している間だけ(演奏)</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="card opts" data-for="life">
+    <h3>Game of Life</h3>
+    <label class="row">ルール <select id="rule"></select></label>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="wrap"> 端をつなぐ</label>
+      <label class="chk"><input type="checkbox" id="birthSound"> 誕生を鳴らす</label>
+    </div>
+    <label class="row">RANDOM密度 <input type="range" id="density" min="0.05" max="0.7" step="0.01"></label>
+    <div class="swatches">
+      <label><input type="color" data-scheme="born">誕生</label>
+      <label><input type="color" data-scheme="alive">生存</label>
+      <label><input type="color" data-scheme="dying">死</label>
+      <label><input type="color" data-scheme="ghost">残光</label>
+    </div>
+  </section>
+
+  <section class="card opts" data-for="falling">
+    <h3>Falling Notes</h3>
+    <label class="row">動き
+      <select id="motion">
+        <option value="straight">まっすぐ</option>
+        <option value="diagonal">斜め(左右で反射)</option>
+        <option value="mix">ミックス</option>
+      </select>
+    </label>
+    <label class="row">出現率 <input type="range" id="fallRate" min="0" max="1" step="0.01"></label>
+    <div class="swatches">
+      <label><input type="color" data-scheme="noteLeft">左手</label>
+      <label><input type="color" data-scheme="noteRight">右手</label>
+      <label><input type="color" data-scheme="hit">到達</label>
+    </div>
+  </section>
+
+  <section class="card fx">
+    <h3>LED <button id="schemeReset" class="link" title="Life / Falling の配色を初期値に戻す">配色リセット</button></h3>
+    <div class="fxs">
+      <label class="chk"><input type="checkbox" data-fx="glow"> glow</label>
+      <label class="chk"><input type="checkbox" data-fx="fade"> fade</label>
+      <label class="chk"><input type="checkbox" data-fx="pulse"> pulse</label>
+      <label class="chk"><input type="checkbox" data-fx="flash"> flash</label>
+      <label class="chk"><input type="checkbox" data-fx="afterglow"> afterglow</label>
+    </div>
+    <label class="row">全体の明るさ <input type="range" id="brightness" min="0.2" max="1" step="0.05"></label>
+  </section>
+
+  <section class="card stats">
+    <dl>
+      <dt>Generation</dt><dd id="stGen" class="mono">0</dd>
+      <dt>Grid</dt><dd id="stGrid" class="mono"></dd>
+      <dt>Devices</dt><dd id="stDevices" class="mono"></dd>
+      <dt>Alive</dt><dd id="stPop" class="mono"></dd>
+      <dt>Hits</dt><dd id="stHits" class="mono"></dd>
+    </dl>
+    <figure class="mini">
+      <canvas id="minimap"></canvas>
+      <figcaption>論理グリッド</figcaption>
+    </figure>
+  </section>
+</footer>
+
+<dialog id="configDialog"></dialog>
+
+<script src="js/core/base.js"></script>
+<script src="js/core/clock.js"></script>
+<script src="js/core/color.js"></script>
+<script src="js/launchpad/profiles.js"></script>
+<script src="js/launchpad/device.js"></script>
+<script src="js/launchpad/rig.js"></script>
+<script src="js/launchpad/virtual-view.js"></script>
+<script src="js/grid/grid.js"></script>
+<script src="js/engines/life.js"></script>
+<script src="js/engines/falling.js"></script>
+<script src="js/engines/manual.js"></script>
+<script src="js/render/animation.js"></script>
+<script src="js/midi/note-mapper.js"></script>
+<script src="js/midi/midi-adapter.js"></script>
+<script src="js/audio/synth.js"></script>
+<script src="js/ui/stage.js"></script>
+<script src="js/ui/pad-input.js"></script>
+<script src="js/ui/minimap.js"></script>
+<script src="js/ui/config.js"></script>
+<script src="js/ui/app.js"></script>
+</body>
+</html>
